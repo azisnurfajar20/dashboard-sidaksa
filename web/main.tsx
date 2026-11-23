@@ -1,0 +1,7 @@
+import { createRoot } from 'react-dom/client';
+import 'bootstrap/dist/css/bootstrap.min.css';
+import './styles.css';
+import { App } from './App';
+const root = document.getElementById('root');
+if (!root) throw new Error('Elemen root SIDAKSA tidak tersedia.');
+createRoot(root).render(<App/>);

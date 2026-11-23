@@ -1,0 +1,59 @@
+{
+  "name": "sidaksa",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "tsx watch server/index.ts --dev",
+    "build": "vite build && esbuild server/index.ts --bundle --platform=node --target=node22 --format=esm --packages=external --outdir=dist/server",
+    "start": "node dist/server/index.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:fixture": "vitest run tests/domain/workbook.test.ts",
+    "test:e2e": "playwright test",
+    "test:performance": "node --import tsx tools/benchmark.mjs",
+    "test:smoke": "node --import tsx tools/smoke-production.mjs",
+    "test:recovery": "node tools/crash-recovery-smoke.mjs && node tools/manual-start-smoke.mjs && node --import tsx tools/manual-legacy-start-smoke.mjs",
+    "verify": "npm run check && npm run test:e2e && npm run test:performance && npm run test:smoke && npm run test:recovery",
+    "check": "npm run typecheck && npm test && npm run test:tools && npm run build && npm run security:scan",
+    "test:tools": "python -m unittest discover -s tests/tools -v",
+    "security:scan": "node tools/security-scan.mjs",
+    "config:check": "tsx server/cli.ts check",
+    "data:backup": "tsx server/cli.ts backup",
+    "data:restore": "tsx server/cli.ts restore"
+  },
+  "dependencies": {
+    "@popperjs/core": "2.11.8",
+    "@supabase/supabase-js": "2.119.0",
+    "bootstrap": "5.3.8",
+    "dotenv": "18.0.10",
+    "express": "5.3.0",
+    "express-rate-limit": "8.7.3",
+    "google-auth-library": "11.3.3",
+    "helmet": "8.3.0",
+    "lucide-react": "1.70.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "react-router-dom": "7.18.5",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.65.0",
+    "@types/express": "5.0.6",
+    "@types/node": "26.6.6",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@types/supertest": "7.2.1",
+    "@vitejs/plugin-react": "6.2.1",
+    "esbuild": "0.28.2",
+    "supertest": "7.3.2",
+    "tsx": "4.23.15",
+    "typescript": "7.0.2",
+    "vite": "8.3.6",
+    "vitest": "5.1.0"
+  }
+}
