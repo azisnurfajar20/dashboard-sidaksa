@@ -74,7 +74,14 @@ Build Vercel menayangkan `dist/client` dan menjalankan dua fungsi autentikasi da
 
 - Deploy ulang dari **commit yang memuat perubahan**, dengan `SUPABASE_URL` dan `SUPABASE_PUBLISHABLE_KEY` pada environment deployment yang diuji. Tidak perlu menyalin `.env` ke Git.
 - Cek bahwa `/api/public-config` mengembalikan JSON `200` dengan `authConfigured: true`, dan `/api/me` tanpa token mengembalikan JSON `401`. Setelah itu, uji masuk memakai akun yang telah disetujui, tanpa menyalin token atau kata sandi ke laporan.
-- Fungsi ini menangani **login saja**. API Google Sheets, snapshot, sinkronisasi, mapping, dan audit tetap membutuhkan backend Express dengan penyimpanan privat yang persisten. Jangan memindahkan penyimpanan operasional ke `/tmp` Vercel.
+- Kedua fungsi Vercel ini menangani **login saja**. Halaman data menggunakan backend Express yang sama seperti instalasi lokal, lewat rute `/api/` yang dipilih di `vercel.ts`. Tanpa `SIDAKSA_BACKEND_ORIGIN`, fungsi login tetap berjalan tetapi API data belum terhubung.
+
+### Mengaktifkan data privat di Vercel
+
+1. Jalankan backend SIDAKSA pada satu instans Node.js yang dikendalikan organisasi, dengan HTTPS dan volume privat persisten untuk `SIDAKSA_DATA_DIR`. Jalankan `npm ci`, `npm run build`, dan `npm run start`. Atur `HOST` dan `PORT` sesuai layanan hosting; tempatkan backend di balik endpoint HTTPS yang benar. Set `APP_ORIGIN=https://dashboard-sidaksa.vercel.app` tanpa slash penutup untuk permintaan dari frontend produksi. `APP_ORIGIN` yang berbeda diperlukan untuk lingkungan uji yang menjalankan operasi admin.
+2. Konfigurasikan backend dengan proyek Supabase Auth dan sumber spreadsheet yang sama. Simpan kredensial Google di penyimpanan rahasia backend atau gunakan ADC yang telah disetujui; `GOOGLE_APPLICATION_CREDENTIALS` harus menunjuk file yang tersedia pada host backend, bukan path laptop. Tetap gunakan akses baca-saja, jangan ubah spreadsheet atau jadikan publik. Jangan simpan snapshot, audit atau kredensial di folder frontend maupun di `/tmp` Vercel. Pertahankan tab referensi yang sudah disetujui; jangan mengaktifkan tab tambahan lewat deployment tanpa persetujuan.
+3. Isi `SIDAKSA_BACKEND_ORIGIN` pada Environment Variables **Production** Vercel dengan origin HTTPS backend yang disetujui (hanya skema dan nama host, tanpa `/api`, kredensial, atau parameter). Deploy commit yang memuat `vercel.ts`. Jangan memakai API pihak ketiga sebagai tujuan: Vercel meneruskan permintaan dashboard yang membawa token sesi Supabase, dan backend sendiri tetap wajib memverifikasi token dan peran.
+4. Verifikasi `/api/health` merespons JSON `200`, `/api/overview` tanpa login merespons JSON `401`, lalu masuk dengan akun berizin dan pastikan `/api/status` menampilkan snapshot dari Google Sheets serta halaman Overview, Rekrutmen, Kandidat, dan Mitra memuat data. Catatan Keberangkatan memerlukan tab referensi yang disetujui. Periksa bahwa respons data tidak disimpan dalam cache publik dan uji ulang refresh serta akses sesuai peran sebelum menyatakan konfigurasi produksi selesai.
 
 ## Sumber dan ketepatan data
 

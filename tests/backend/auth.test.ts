@@ -10,6 +10,19 @@ describe('Supabase trust boundary',()=>{
    getUser.mockResolvedValueOnce({data:{user:{id:'u1',email:'test@example.invalid',app_metadata:{sidaksa_approved:true,sidaksa_role:'leader'},user_metadata:{}}},error:null});
    expect(await auth('signed-token')).toMatchObject({role:'leader',id:'u1'});
  });
+ it('rejects non-string and unrecognized roles even on an approved account',async()=>{
+   const getUser=vi.fn<NonNullable<Parameters<typeof createSupabaseAuthenticator>[1]>['auth']['getUser']>();
+   const auth=createSupabaseAuthenticator({url:'https://project.supabase.co',publishableKey:'sb_publishable_fixture'},{auth:{getUser}});
+   const response=(role:unknown)=>({data:{user:{id:'fixture',app_metadata:{sidaksa_approved:true,sidaksa_role:role}}},error:null});
+   for(const role of [['leader'],['admin'],{role:'leader'},null,'Leader','unknown']){
+     getUser.mockResolvedValueOnce(response(role));
+     await expect(auth('fixture-token')).rejects.toMatchObject({status:403,code:'ACCOUNT_NOT_APPROVED'});
+   }
+   for(const role of ['admin','recruiter','leader']){
+     getUser.mockResolvedValueOnce(response(role));
+     await expect(auth('fixture-token')).resolves.toMatchObject({role});
+   }
+ });
  it('fails closed on invalid credentials and offline auth with sanitized errors',async()=>{
    const bad=createSupabaseAuthenticator({url:'https://project.supabase.co',publishableKey:'sb_publishable_fixture'},{auth:{getUser:async()=>({data:{user:null},error:{status:401,message:'PRIVATE'}})}});
    await expect(bad('bad')).rejects.toMatchObject({status:401});

@@ -1,7 +1,7 @@
-import { readFile } from 'node:fs/promises';
 import express from 'express';
 import request from 'supertest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { buildVercelConfig } from '../../vercel';
 
 // Load the same default exports Vercel uses, without any local .env or data store.
 async function hostedApi() {
@@ -25,8 +25,8 @@ function configureAuth(key = 'sb_publishable_synthetic_fixture') {
 afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
 
 describe('Vercel sign-in endpoints', () => {
-  it('keeps the SPA fallback for user pages but never rewrites API or assets to HTML', async () => {
-    const config = JSON.parse(await readFile(new URL('../../vercel.json', import.meta.url), 'utf8'));
+  it('keeps the SPA fallback for user pages but never rewrites API or assets to HTML', () => {
+    const config = buildVercelConfig({});
     const rules: { source: string; destination: string }[] = config.rewrites;
     const fallback = rules.filter(rule => rule.destination === '/index.html').map(rule => new RegExp(`^${rule.source}$`, 'i'));
     const matches = (path: string) => fallback.some(pattern => pattern.test(path));
@@ -70,5 +70,20 @@ describe('Vercel sign-in endpoints', () => {
     expect(approved.body).toEqual({ user: { id: 'fixture-user', email: 'fixture@example.invalid', role: 'admin' }, permissions: { viewContact: true, manageData: true, exportDetail: true } });
     expect(String(fetcher.mock.calls[1]?.[0])).toBe('https://auth.sidaksa.invalid/auth/v1/user');
     expect(new Headers(fetcher.mock.calls[1]?.[1]?.headers).get('Authorization')).toBe('Bearer synthetic-token');
+  });
+
+  it('never grants permissions for malformed approved roles', async () => {
+    configureAuth();
+    const fetcher = vi.fn<typeof fetch>();
+    const identity = (role: unknown) => new Response(JSON.stringify({ id: 'fixture-user', app_metadata: { sidaksa_approved: true, sidaksa_role: role } }), { headers: { 'Content-Type': 'application/json' } });
+    fetcher.mockResolvedValueOnce(identity(['leader'])).mockResolvedValueOnce(identity('leader'));
+    vi.stubGlobal('fetch', fetcher);
+    const api = await hostedApi();
+    const rejected = await api.get('/api/me').set('Authorization', 'Bearer fixture-token').expect('Cache-Control', 'no-store').expect(403);
+    expect(rejected.body.error.code).toBe('ACCOUNT_NOT_APPROVED');
+    expect(rejected.body).not.toHaveProperty('permissions');
+    const leader = await api.get('/api/me').set('Authorization', 'Bearer fixture-token').expect(200);
+    expect(leader.body.user.role).toBe('leader');
+    expect(leader.body.permissions).toEqual({ manageData: false, viewContact: false, exportDetail: false });
   });
 });

@@ -14,7 +14,8 @@ export function createSupabaseAuthenticator(config:{url:string;publishableKey:st
    const user=response.data.user;
    if(!user?.id)throw new ApiError(401,'INVALID_TOKEN','Sesi tidak valid atau telah kedaluwarsa.');
    const metadata=user.app_metadata||{};
-   if(metadata.sidaksa_approved!==true||!['admin','recruiter','leader'].includes(String(metadata.sidaksa_role)))throw new ApiError(403,'ACCOUNT_NOT_APPROVED','Akun belum disetujui untuk SIDAKSA.');
-   return {id:user.id,email:user.email||'',role:metadata.sidaksa_role as Viewer['role']};
+   const role=metadata.sidaksa_role;
+   if(metadata.sidaksa_approved!==true||(role!=='admin'&&role!=='recruiter'&&role!=='leader'))throw new ApiError(403,'ACCOUNT_NOT_APPROVED','Akun belum disetujui untuk SIDAKSA.');
+   return {id:user.id,email:user.email||'',role};
  };
 }
