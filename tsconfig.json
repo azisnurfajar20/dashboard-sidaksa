@@ -27,7 +27,6 @@
     "web",
     "shared",
     "tests",
-    "vercel.ts",
     "vite.config.ts",
     "vitest.config.ts",
     "playwright.config.ts"

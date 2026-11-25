@@ -14,12 +14,12 @@ const formatCell=z.object({effectiveFormat:z.object({numberFormat:z.object({type
 const formatGrid=z.object({startRow:z.number().int().nonnegative().optional(),startColumn:z.number().int().nonnegative().optional(),rowData:z.array(z.object({values:z.array(formatCell).optional()})).optional()});
 const formatResponse=z.object({sheets:z.array(z.object({properties:z.object({title:z.string()}),data:z.array(formatGrid).optional()}))});
 const lastColumn:Record<string,string>={'Data Kandidat':'I','Data Mitra Agent':'F','Data Company':'H','Proses Rekrutment':'R','Crew List Departure':'H','Funnel Rekap':'D'};
-export function createGoogleSource(config:Config,deps:{request?:Requester;sleep?:(ms:number)=>Promise<void>;now?:()=>Date}={}):SourceLoader {
+export function createGoogleSource(config:Config,deps:{request?:Requester;sleep?:(ms:number)=>Promise<void>;now?:()=>Date;serviceAccountJson?:string}={}):SourceLoader {
   let auth:ReturnType<typeof createGoogleAuth>|undefined;
   const sleep=deps.sleep||((ms:number)=>new Promise(resolve=>setTimeout(resolve,ms)));
   const request:Requester=deps.request||(async({params,...options})=>{
     // Initialize only for a configured source; retain a successful client but allow retry after a failed local read.
-    auth??=createGoogleAuth(config).catch(error=>{auth=undefined;throw error;});
+    auth??=createGoogleAuth(config,deps.serviceAccountJson).catch(error=>{auth=undefined;throw error;});
     const client=await (await auth).getClient(),url=new URL(options.url);
     for(const [key,value] of Object.entries(params||{}))for(const item of Array.isArray(value)?value:[value])if(item!==undefined&&item!==null)url.searchParams.append(key,String(item));
     return client.request({...options,url:url.toString()});

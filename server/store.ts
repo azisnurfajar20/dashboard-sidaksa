@@ -24,7 +24,7 @@ const review=z.object({snapshotId:z.string(),issueId:z.string(),status:z.enum(['
 const audit=z.object({id:z.string(),at:z.iso.datetime({offset:true}),actorId:z.string(),action:z.string(),result:z.enum(['ok','failed']),details:z.record(z.string(),z.union([z.string(),z.number().finite(),z.boolean(),z.null()]))}).strict();
 const sync=z.object({state:z.enum(['never','ok','failed','running']),lastAttemptAt:z.iso.datetime({offset:true}).nullable(),lastSuccessAt:z.iso.datetime({offset:true}).nullable(),nextRunAt:z.iso.datetime({offset:true}).nullable(),message:z.string().nullable()}).strict();
 const stateSchema=z.object({version:z.literal(1),raw:rawWorkbookSchema.nullable(),snapshot:z.unknown(),settings:safeSettings,mappings:z.array(mapping),reviews:z.array(review),audit:z.array(audit),sync}).strict();
-function validate(value:unknown):StoredState {
+export function validateStoredState(value:unknown):StoredState {
   try {
   const checked=stateSchema.safeParse(value);if(!checked.success)throw new Error('Data penyimpanan tidak valid');
   const s=checked.data as StoredState;
@@ -38,7 +38,7 @@ function validate(value:unknown):StoredState {
   return s;
   } catch {throw new ApiError(503,'STORE_INVALID','Penyimpanan privat tidak valid; pemulihan diperlukan');}
 }
-function empty(settings?:Partial<StoredSettings>):StoredState {return {version:1,raw:null,snapshot:null,settings:safeSettings.parse({referenceTabs:[],syncIntervalMinutes:15,retentionDays:30,...settings}),mappings:[],reviews:[],audit:[],sync:{state:'never',lastAttemptAt:null,lastSuccessAt:null,nextRunAt:null,message:null}};}
+export function emptyStoredState(settings?:Partial<StoredSettings>):StoredState {return {version:1,raw:null,snapshot:null,settings:safeSettings.parse({referenceTabs:[],syncIntervalMinutes:15,retentionDays:30,...settings}),mappings:[],reviews:[],audit:[],sync:{state:'never',lastAttemptAt:null,lastSuccessAt:null,nextRunAt:null,message:null}};}
 async function atomic(file:string,value:unknown,exclusive=false) {
   await mkdir(path.dirname(file),{recursive:true,mode:0o700});const temp=file+'.'+randomUUID()+'.tmp';
   try {const handle=await open(temp,'wx',0o600);try{await handle.writeFile(JSON.stringify(value));await handle.sync();}finally{await handle.close();}if(exclusive)await link(temp,file);else await rename(temp,file);}finally{await rm(temp,{force:true});}
@@ -55,9 +55,9 @@ export async function createStore(options:{directory:string;settings?:Partial<St
   let legacyBackupSaved=false;
   let persisted:string|undefined;
   try {persisted=await readFile(file,'utf8');} catch(error) {if((error as NodeJS.ErrnoException).code!=='ENOENT')throw error;}
-  if(persisted===undefined)current=empty(options.settings);
+  if(persisted===undefined)current=emptyStoredState(options.settings);
   else {try {
-    const original=JSON.parse(persisted);current=validate(original);
+    const original=JSON.parse(persisted);current=validateStoredState(original);
     if(JSON.stringify(original.snapshot)!==JSON.stringify(current.snapshot))legacyBackup={file:path.join(directory,'compatibility',`state-before-${NORMALIZATION_REVISION}-${randomUUID()}.json`),state:original};
   }catch{throw new ApiError(503,'STORE_INVALID','Penyimpanan privat tidak valid; pemulihan diperlukan');}}
   let revision=0;
@@ -86,7 +86,7 @@ export async function createStore(options:{directory:string;settings?:Partial<St
         s.audit=s.audit.filter(a=>Date.parse(a.at)>=cutoff);s.reviews=s.reviews.filter(r=>Date.parse(r.at)>=cutoff);
       });
     },
-    async backup(target) {await queue;validate(current);await atomic(path.resolve(target),{format:'sidaksa-private-backup',version:1,createdAt:(options.now?.()||new Date()).toISOString(),state:current});},
-    async restore(target) {const p=path.resolve(target);if((await stat(p)).size>100*1024*1024)throw new Error('Backup tidak valid');const envelope=JSON.parse(await readFile(p,'utf8'));if(envelope.format!=='sidaksa-private-backup'||envelope.version!==1)throw new Error('Format backup tidak valid');const restored=validate(envelope.state);await update(s=>{Object.assign(s,restored);s.sync={...s.sync,state:s.snapshot?'ok':'never',nextRunAt:null};s.audit.push({id:randomUUID(),at:(options.now?.()||new Date()).toISOString(),actorId:'cli',action:'backup.restore',result:'ok',details:{snapshotId:s.snapshot?.id||null}});});},
+    async backup(target) {await queue;validateStoredState(current);await atomic(path.resolve(target),{format:'sidaksa-private-backup',version:1,createdAt:(options.now?.()||new Date()).toISOString(),state:current});},
+    async restore(target) {const p=path.resolve(target);if((await stat(p)).size>100*1024*1024)throw new Error('Backup tidak valid');const envelope=JSON.parse(await readFile(p,'utf8'));if(envelope.format!=='sidaksa-private-backup'||envelope.version!==1)throw new Error('Format backup tidak valid');const restored=validateStoredState(envelope.state);await update(s=>{Object.assign(s,restored);s.sync={...s.sync,state:s.snapshot?'ok':'never',nextRunAt:null};s.audit.push({id:randomUUID(),at:(options.now?.()||new Date()).toISOString(),actorId:'cli',action:'backup.restore',result:'ok',details:{snapshotId:s.snapshot?.id||null}});});},
   };return store;
 }

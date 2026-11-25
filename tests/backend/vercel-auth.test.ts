@@ -1,7 +1,7 @@
 import express from 'express';
 import request from 'supertest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { buildVercelConfig } from '../../vercel';
+import config from '../../vercel.json';
 
 // Load the same default exports Vercel uses, without any local .env or data store.
 async function hostedApi() {
@@ -26,7 +26,6 @@ afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
 
 describe('Vercel sign-in endpoints', () => {
   it('keeps the SPA fallback for user pages but never rewrites API or assets to HTML', () => {
-    const config = buildVercelConfig({});
     const rules: { source: string; destination: string }[] = config.rewrites;
     const fallback = rules.filter(rule => rule.destination === '/index.html').map(rule => new RegExp(`^${rule.source}$`, 'i'));
     const matches = (path: string) => fallback.some(pattern => pattern.test(path));

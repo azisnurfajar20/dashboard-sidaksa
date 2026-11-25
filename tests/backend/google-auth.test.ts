@@ -87,6 +87,17 @@ describe('explicit service-account auth without deprecated generic credential op
     expect(warn).not.toHaveBeenCalled();
   });
 
+  it('uses server-only JSON without reading a file or trusting additional credential fields', async () => {
+    const { clients, request } = fakeSheets();
+    const config = { ...readConfig({ GOOGLE_SPREADSHEET_ID: 'SYNTHETIC_VERCEL' }), sheetsConfigured: true };
+    await expect(createGoogleSource(config, { serviceAccountJson: JSON.stringify(credentials) })([])).resolves.toMatchObject({ source: 'google-sheets' });
+    expect(request).toHaveBeenCalledTimes(4);
+    expect(clients[0]?.scopes).toEqual([READ_ONLY_SCOPE]);
+    expect(clients[0]?.universeDomain).toBe('googleapis.com');
+    await expect(createGoogleSource(config, { serviceAccountJson: '{synthetic-private-content' })([])).rejects.toMatchObject({ code: 'SOURCE_UNAVAILABLE', message: expect.not.stringContaining('synthetic-private-content') });
+    expect(request).toHaveBeenCalledTimes(4);
+  });
+
   it('does not initialize auth when source is unconfigured', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const sdk = vi.spyOn(GoogleAuth.prototype, 'getClient'); const { config } = await configured('{broken');

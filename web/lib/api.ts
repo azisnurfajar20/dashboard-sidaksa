@@ -13,7 +13,10 @@ export function safeApiMessage(status: number, code = ''): string {
     return 'Permintaan bertentangan dengan kondisi data saat ini. Periksa data atau hubungi admin.';
   }
   if (status === 429) return 'Terlalu banyak permintaan. Tunggu sebentar lalu coba lagi.';
-  if (status === 503 || ['AUTH_UNCONFIGURED', 'AUTH_UNAVAILABLE', 'SOURCE_UNAVAILABLE', 'SNAPSHOT_UNAVAILABLE', 'REFERENCE_UNAVAILABLE', 'NO_SNAPSHOT'].includes(code)) return 'Sumber belum tersedia. Periksa kesiapan integrasi dan snapshot terakhir.';
+  if (code === 'HOSTED_DATA_UNCONFIGURED' || code === 'STORE_UNAVAILABLE') return 'Penyimpanan privat SIDAKSA belum siap. Admin perlu memeriksa konfigurasi penyimpanan di Vercel.';
+  if (code === 'SHEETS_UNCONFIGURED') return 'Koneksi Google Sheets belum dikonfigurasi di server.';
+  if (code === 'SNAPSHOT_UNAVAILABLE') return 'Snapshot Google Sheets belum tersedia. Admin dapat memilih “Sinkronkan sekarang” di Pengaturan.';
+  if (status === 503 || ['AUTH_UNCONFIGURED', 'AUTH_UNAVAILABLE', 'SOURCE_UNAVAILABLE', 'REFERENCE_UNAVAILABLE', 'NO_SNAPSHOT'].includes(code)) return 'Sumber belum tersedia. Periksa kesiapan integrasi dan snapshot terakhir.';
   if (status === 400) return 'Permintaan belum valid. Periksa isian dan filter Anda.';
   return 'Data tidak dapat dimuat. Coba lagi atau hubungi admin.';
 }

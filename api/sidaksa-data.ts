@@ -1,0 +1,1 @@
+export { vercelData as default } from '../server/vercel-data.js';

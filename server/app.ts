@@ -100,6 +100,9 @@ export interface AppOptions {
   allowFixtureForTests?: boolean;
   development?: boolean;
   now?: () => Date;
+  prepareDataRequest?: RequestHandler;
+  hostedData?: 'manual' | 'vercel-cron';
+  vercelProxy?: boolean;
 }
 export interface AppServices { config: Config; store: Store; sync: SyncService; runtimeId?: string }
 export type SidaksaApp = Express & { locals: Express['locals'] & { sidaksa: AppServices } };
@@ -127,9 +130,9 @@ export async function createApp(options: AppOptions): Promise<SidaksaApp> {
   app.locals.sidaksa = { config, store, sync };
   app.disable('x-powered-by');
   app.set('query parser', 'simple');
-  app.set('trust proxy', false);
+  app.set('trust proxy', options.vercelProxy ? 1 : false);
   app.use(helmet({ contentSecurityPolicy: options.development ? false : { directives: { defaultSrc: ["'self'"], scriptSrc: ["'self'"], connectSrc: ["'self'", ...(config.authConfigured ? [config.supabaseUrl] : [])], imgSrc: ["'self'", 'data:'], objectSrc: ["'none'"], frameAncestors: ["'none'"], upgradeInsecureRequests: null } }, referrerPolicy: { policy: 'no-referrer' } }));
-  app.use('/api', (_req, res, next) => { res.setHeader('Cache-Control', 'no-store'); next(); });
+  app.use('/api', (_req, res, next) => { res.setHeader('Cache-Control', options.hostedData ? 'private, no-store' : 'no-store'); next(); });
   app.use('/api', (req, _res, next) => { if (req.originalUrl.length > 8192) throw new ApiError(414, 'URL_TOO_LONG', 'URL permintaan terlalu panjang.'); next(); });
   app.use('/api', rateLimit({ windowMs: 60000, limit: 300, standardHeaders: 'draft-8', legacyHeaders: false, handler: (_req, res) => { res.status(429).json({ error: { code: 'RATE_LIMIT', message: 'Terlalu banyak permintaan. Coba lagi nanti.' } }); } }));
   app.get('/api/health', (_req, res) => { if (app.locals.sidaksa.runtimeId) res.setHeader('X-Sidaksa-Instance', app.locals.sidaksa.runtimeId); res.json({ status: 'ok' }); });
@@ -158,6 +161,7 @@ export async function createApp(options: AppOptions): Promise<SidaksaApp> {
   app.use('/api', rateLimit({ windowMs: 60000, limit: 30, keyGenerator: (_req, res) => (res.locals.viewer as Viewer).id, skip: req => !['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method), standardHeaders: 'draft-8', legacyHeaders: false, handler: (_req, res) => { res.status(429).json({ error: { code: 'RATE_LIMIT', message: 'Terlalu banyak perubahan. Coba lagi nanti.' } }); } }));
   app.use('/api', express.json({ limit: '16kb', strict: true, inflate: false }));
   app.get('/api/me', noQuery, (_req, res) => { const user = res.locals.viewer as Viewer; res.json({ user, permissions: permissions(user.role) }); });
+  if (options.prepareDataRequest) app.use('/api', options.prepareDataRequest);
   let cachedRevision: number | undefined;
   let cachedSnapshot: Snapshot | null = null;
   const currentSnapshot = (): Snapshot | null => {
@@ -242,7 +246,7 @@ export async function createApp(options: AppOptions): Promise<SidaksaApp> {
     });
     res.json({ row: snapshot().issues.find(i => i.id === req.params.id), snapshotId: value.snapshotId });
   });
-  const settings = () => ({ sourceMode: 'google-sheets' as const, spreadsheetId: config.spreadsheetId, requiredTabs: [...REQUIRED_TABS], ...store.read().settings, authConfigured: config.authConfigured, sheetsConfigured: config.sheetsConfigured, credentialConfigured: config.credentialConfigured, googleOAuthEnabled: config.googleOAuthEnabled });
+  const settings = () => ({ sourceMode: 'google-sheets' as const, spreadsheetId: config.spreadsheetId, requiredTabs: [...REQUIRED_TABS], ...store.read().settings, authConfigured: config.authConfigured, sheetsConfigured: config.sheetsConfigured, credentialConfigured: config.credentialConfigured, googleOAuthEnabled: config.googleOAuthEnabled, ...(options.hostedData ? { syncMode: options.hostedData } : {}) });
   app.get('/api/settings', adminOnly, noQuery, (_req, res) => { res.json(settings()); });
   app.put('/api/settings', adminOnly, noQuery, async (req, res) => {
     const value = body(settingsBody, req.body);

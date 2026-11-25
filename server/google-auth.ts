@@ -12,6 +12,17 @@ const serviceAccount = z.object({
   private_key: z.string().min(1).max(16384),
 });
 
+function parseServiceAccount(json: string) {
+  if (Buffer.byteLength(json, 'utf8') > MAX_CREDENTIAL_BYTES) throw new Error('Invalid service-account configuration.');
+  let value: unknown;
+  try { value = JSON.parse(json); } catch { throw new Error('Invalid service-account configuration.'); }
+  const parsed = serviceAccount.safeParse(value);
+  if (!parsed.success) throw new Error('Invalid service-account configuration.');
+  const key = createPrivateKey(parsed.data.private_key);
+  if (key.asymmetricKeyType !== 'rsa' || (key.asymmetricKeyDetails?.modulusLength ?? 0) < 2048) throw new Error('Invalid service-account key.');
+  return parsed.data;
+}
+
 async function readServiceAccount(file: string) {
   const handle = await open(file, 'r');
   try {
@@ -26,19 +37,15 @@ async function readServiceAccount(file: string) {
       length += bytesRead;
     }
     if (length > MAX_CREDENTIAL_BYTES) throw new Error('Invalid service-account file.');
-    const parsed = serviceAccount.safeParse(JSON.parse(buffer.subarray(0, length).toString('utf8')));
-    if (!parsed.success) throw new Error('Invalid service-account configuration.');
-    const key = createPrivateKey(parsed.data.private_key);
-    if (key.asymmetricKeyType !== 'rsa' || (key.asymmetricKeyDetails?.modulusLength ?? 0) < 2048) throw new Error('Invalid service-account key.');
-    return parsed.data;
+    return parseServiceAccount(buffer.subarray(0, length).toString('utf8'));
   } finally {
     await handle.close();
   }
 }
 
-export async function createGoogleAuth(config: Pick<Config, 'credentialFile' | 'useAdc'>): Promise<GoogleAuth> {
-  if (config.credentialFile) {
-    const account = await readServiceAccount(config.credentialFile);
+export async function createGoogleAuth(config: Pick<Config, 'credentialFile' | 'useAdc'>, serviceAccountJson?: string): Promise<GoogleAuth> {
+  if (serviceAccountJson !== undefined || config.credentialFile) {
+    const account = serviceAccountJson === undefined ? await readServiceAccount(config.credentialFile) : parseServiceAccount(serviceAccountJson);
     // Choose the credential type explicitly. Never pass generic keyFile/credentials options,
     // or copy token_uri, credential_source, universe_domain or other provider selectors from JSON.
     const authClient = new JWT({ email: account.client_email, key: account.private_key, scopes: [READ_ONLY_SCOPE] });
