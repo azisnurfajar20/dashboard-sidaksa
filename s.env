@@ -1,0 +1,4 @@
+[35mserver/vercel-data.ts[m[36m:[m[32m65[m[36m:[m    if (!store) throw new ApiError(503, '[1;31mSTORE_UNAVAILABLE[m', 'Penyimpanan privat belum tersedia.');
+[35mserver/vercel-store.ts[m[36m:[m[32m11[m[36m:[mconst unavailable = () => new ApiError(503, '[1;31mSTORE_UNAVAILABLE[m', 'Penyimpanan privat SIDAKSA di Vercel tidak tersedia.');
+[35mtests/backend/vercel-data.test.ts[m[36m:[m[32m48[m[36m:[m    await expect(storage.createPrivateBlob(null).read('fixture')).rejects.toMatchObject({ code: '[1;31mSTORE_UNAVAILABLE[m' });
+[35mweb/lib/api.ts[m[36m:[m[32m16[m[36m:[m  if (code === 'HOSTED_DATA_UNCONFIGURED' || code === '[1;31mSTORE_UNAVAILABLE[m') return 'Penyimpanan privat SIDAKSA belum siap. Admin perlu memeriksa konfigurasi penyimpanan di Vercel.';
