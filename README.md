@@ -68,6 +68,14 @@ GOOGLE_APPLICATION_CREDENTIALS=
 
 Jika menggunakan email undangan/reset password untuk produksi, siapkan custom SMTP yang sesuai. Penyedia/anggaran belum dipilih.
 
+## Login di Vercel
+
+Build Vercel menayangkan `dist/client` dan menjalankan dua fungsi autentikasi dari `api/`: `GET /api/public-config` membaca konfigurasi Supabase dari environment runtime, dan `GET /api/me` memverifikasi token serta persetujuan akun di Supabase Auth. Rewrite halaman React tidak meneruskan jalur API ke `index.html`.
+
+- Deploy ulang dari **commit yang memuat perubahan**, dengan `SUPABASE_URL` dan `SUPABASE_PUBLISHABLE_KEY` pada environment deployment yang diuji. Tidak perlu menyalin `.env` ke Git.
+- Cek bahwa `/api/public-config` mengembalikan JSON `200` dengan `authConfigured: true`, dan `/api/me` tanpa token mengembalikan JSON `401`. Setelah itu, uji masuk memakai akun yang telah disetujui, tanpa menyalin token atau kata sandi ke laporan.
+- Fungsi ini menangani **login saja**. API Google Sheets, snapshot, sinkronisasi, mapping, dan audit tetap membutuhkan backend Express dengan penyimpanan privat yang persisten. Jangan memindahkan penyimpanan operasional ke `/tmp` Vercel.
+
 ## Sumber dan ketepatan data
 
 Empat tab wajib:

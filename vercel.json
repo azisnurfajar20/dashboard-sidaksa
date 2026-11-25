@@ -1,9 +1,10 @@
 {
-    "version": 2,
-    "buildCommand": "npm run build",
-    "outputDirectory": "dist/client",
-    "rewrites": [{
-        "source": "/(.*)",
-        "destination": "/index.html"
-    }]
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "vite",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist/client",
+  "rewrites": [
+    { "source": "/", "destination": "/index.html" },
+    { "source": "/(rekrutmen|kandidat|mitra|keberangkatan|kualitas-data|pengaturan|password)", "destination": "/index.html" }
+  ]
 }
